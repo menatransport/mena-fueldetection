@@ -26,15 +26,15 @@ export async function PUT(request: Request) {
       }
       
       // Validate result values
-      if (!['ปกติ', 'ไม่ปกติ'].includes(update.result)) {
+      if (!['ปกติ', 'ผิดปกติ'].includes(update.result)) {
         return NextResponse.json(
-          { success: false, message: "Invalid result value. Must be 'ปกติ' or 'ไม่ปกติ'" },
+          { success: false, message: "Invalid result value. Must be 'ปกติ' or 'ผิดปกติ'" },
           { status: 400 }
         );
       }
 
       // Validate liter for abnormal results
-      if (update.result === 'ไม่ปกติ' && (update.liter === null || update.liter === undefined || isNaN(update.liter))) {
+      if (update.result === 'ผิดปกติ' && (update.liter === null || update.liter === undefined || isNaN(update.liter))) {
         return NextResponse.json(
           { success: false, message: "Valid liter value is required for abnormal results" },
           { status: 400 }

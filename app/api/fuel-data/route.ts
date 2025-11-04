@@ -53,7 +53,9 @@ export async function GET(request: Request) {
                 marker_id: "$marker_id",
                 result: "$result",
                 liter: "$liter",
-                updated_at: "$updated_at"
+                updated_at: "$updated_at",
+                datetime5mins: "$datetime5mins",
+                fuel_diff_5min_ago: "$fuel_diff_5min_ago"
               }
             },
             count: { $sum: 1 },

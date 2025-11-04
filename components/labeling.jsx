@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import { useFuelData } from "@/contexts/FuelDataContext";
 
 export const Labeling = () => {
-  const [markerResults, setMarkerResults] = useState({}); 
+  const [markerResults, setMarkerResults] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [customMarkers, setCustomMarkers] = useState([]);
 
   const { selectedGroup, refreshTableData } = useFuelData();
   const currentData = selectedGroup?.items || null;
@@ -17,9 +18,19 @@ export const Labeling = () => {
         ...prev[markerId],
         mongoId: mongoId,
         result: result,
-        liter: result === "ไม่ปกติ" ? prev[markerId]?.liter || "" : null,
+        liter: result === "ผิดปกติ" ? prev[markerId]?.liter || "" : null,
       },
     }));
+  };
+
+  const handleDateTimeChange = (markerId, datetime) => {
+    setCustomMarkers((prev) =>
+      prev.map((marker) =>
+        marker.marker_id === markerId
+          ? { ...marker, datetime5mins: datetime }
+          : marker
+      )
+    );
   };
 
   const handleLiterChange = (markerId, liter) => {
@@ -43,9 +54,17 @@ export const Labeling = () => {
         };
       });
     }
+
+    customMarkers.forEach((marker) => {
+      newState[marker.marker_id] = {
+        mongoId: null,
+        result: "ปกติ",
+        liter: null,
+        isCustom: true,
+      };
+    });
     setMarkerResults(newState);
   };
-
 
   const handleSelectAllAbnormal = () => {
     const newState = {};
@@ -53,69 +72,185 @@ export const Labeling = () => {
       currentData.forEach((item) => {
         newState[item.marker_id] = {
           mongoId: item._id,
-          result: "ไม่ปกติ",
+          result: "ผิดปกติ",
           liter: markerResults[item.marker_id]?.liter || "",
         };
       });
     }
+
+    customMarkers.forEach((marker) => {
+      newState[marker.marker_id] = {
+        mongoId: null,
+        result: "ผิดปกติ",
+        liter: markerResults[marker.marker_id]?.liter || "",
+        isCustom: true,
+      };
+    });
     setMarkerResults(newState);
+  };
+
+  const handleAddCustomMarker = () => {
+    const existingMarkerIds = [
+      ...(currentData ? currentData.map((item) => item.marker_id) : []),
+      ...customMarkers.map((marker) => marker.marker_id),
+    ];
+
+    const nextMarkerId =
+      existingMarkerIds.length > 0 ? Math.max(...existingMarkerIds) + 1 : 1;
+
+    const newCustomMarker = {
+      marker_id: nextMarkerId,
+      _id: `custom_${Date.now()}`,
+      datetime5mins: null,
+      fuel_diff_5min_ago: 0,
+      result: null,
+      liter: null,
+      isCustom: true,
+    };
+
+    setCustomMarkers((prev) => [...prev, newCustomMarker]);
+  };
+
+  const handleDeleteCustomMarker = (markerId) => {
+    setCustomMarkers((prev) =>
+      prev.filter((marker) => marker.marker_id !== markerId)
+    );
+    setMarkerResults((prev) => {
+      const newResults = { ...prev };
+      delete newResults[markerId];
+      return newResults;
+    });
   };
 
   const handleSave = async () => {
     const updates = [];
+    const newRecords = [];
     const incompleteMarkers = [];
+    const incompleteCustomMarkers = [];
 
     Object.entries(markerResults).forEach(([markerId, data]) => {
-      if (
-        data.result === "ไม่ปกติ" &&
-        (!data.liter)
-      ) {
-        incompleteMarkers.push(markerId);
+      const markerData = allMarkerData.find(
+        (item) => item.marker_id === parseInt(markerId)
+      );
+      const isCustomMarker = markerData?.isCustom;
+
+      if (data.result === "ผิดปกติ" && !data.liter) {
+        if (isCustomMarker) {
+          incompleteCustomMarkers.push(markerId);
+        } else {
+          incompleteMarkers.push(markerId);
+        }
+      } else if (isCustomMarker && !markerData?.datetime5mins) {
+        incompleteCustomMarkers.push(`${markerId} (ไม่มี datetime)`);
       } else if (data.result) {
-        updates.push({
-          _id: data.mongoId,
-          marker_id: parseInt(markerId),
-          result: data.result,
-          liter:
-            data.result === "ไม่ปกติ" ? (parseFloat(data.liter) || 0) : null,
-        });
+        if (isCustomMarker) {
+          newRecords.push({
+            marker_id: parseInt(markerId),
+            datetime5mins: markerData?.datetime5mins,
+            result: data.result,
+            liter:
+              data.result === "ผิดปกติ" ? parseFloat(data.liter) || 0 : null,
+            fuel_diff_5min_ago: null,
+            group_id: selectedGroup?.id || null,
+          });
+        } else {
+          updates.push({
+            _id: data.mongoId,
+            marker_id: parseInt(markerId),
+            result: data.result,
+            liter:
+              data.result === "ผิดปกติ" ? parseFloat(data.liter) || 0 : null,
+          });
+        }
       }
     });
 
-    if (incompleteMarkers.length > 0) {
-      alert(
-        `กรุณากรอกจำนวนลิตรสำหรับ Marker ที่ไม่ปกติ: ${incompleteMarkers.join(
+    if (incompleteMarkers.length > 0 || incompleteCustomMarkers.length > 0) {
+      let errorMessage = "";
+      if (incompleteMarkers.length > 0) {
+        errorMessage += `กรุณากรอกจำนวนลิตรสำหรับ Marker ผิดปกติ: ${incompleteMarkers.join(
           ", "
-        )}`
-      );
+        )}\n`;
+      }
+      if (incompleteCustomMarkers.length > 0) {
+        errorMessage += `กรุณากรอกข้อมูลให้สมบูรณ์สำหรับ Marker ใหม่: ${incompleteCustomMarkers.join(
+          ", "
+        )}`;
+      }
+      alert(errorMessage);
       return;
     }
 
-    if (updates.length === 0) {
+    if (updates.length === 0 && newRecords.length === 0) {
       alert("กรุณาเลือกระดับน้ำมันสำหรับ Marker อย่างน้อย 1 รายการ");
       return;
     }
 
     try {
       setIsSubmitting(true);
-      console.log("Sending updates:", updates);
+      let successCount = 0;
+      let errors = [];
 
-      const response = await fetch("/api/update", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ updates }),
-      });
+      // บันทึกข้อมูลเดิม (PUT)
+      if (updates.length > 0) {
+        try {
+          const updateResponse = await fetch("/api/update", {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ updates }),
+          });
 
-      const result = await response.json();
+          const updateResult = await updateResponse.json();
 
-      if (result.success) {
+          if (updateResult.success) {
+            successCount += updates.length;
+          } else {
+            errors.push(`อัพเดท: ${updateResult.message}`);
+          }
+        } catch (error) {
+          errors.push(`อัพเดท: ${error.message}`);
+        }
+      }
 
+      // บันทึกข้อมูลใหม่ (POST)
+      if (newRecords.length > 0) {
+        try {
+          const createResponse = await fetch("/api/create", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ records: newRecords }),
+          });
+
+          const createResult = await createResponse.json();
+
+          if (createResult.success) {
+            successCount += newRecords.length;
+            setCustomMarkers([]);
+          } else {
+            errors.push(`เพิ่มใหม่: ${createResult.message}`);
+          }
+        } catch (error) {
+          errors.push(`เพิ่มใหม่: ${error.message}`);
+        }
+      }
+
+      if (successCount > 0) {
         refreshTableData();
-        alert( `บันทึกข้อมูลสำเร็จ ${updates.length} จุด`);
+        if (errors.length === 0) {
+          alert(`บันทึกข้อมูลสำเร็จ ${successCount} จุด`);
+        } else {
+          alert(
+            `บันทึกข้อมูลสำเร็จ ${successCount} จุด\nมีข้อผิดพลาด: ${errors.join(
+              ", "
+            )}`
+          );
+        }
       } else {
-        throw new Error(result.message || "เกิดข้อผิดพลาดในการบันทึก");
+        throw new Error(errors.join(", ") || "เกิดข้อผิดพลาดในการบันทึก");
       }
     } catch (error) {
       console.error("Save error:", error);
@@ -128,19 +263,19 @@ export const Labeling = () => {
   useEffect(() => {
     if (currentData && currentData.length > 0) {
       const results = {};
-      console.log("Current data for labeling:", currentData);
       currentData.forEach((item) => {
-    
         results[item.marker_id] = {
           mongoId: item._id,
           result: item.result,
-          liter: item.liter || null, 
+          liter: item.liter || null,
         };
       });
       setMarkerResults(results);
     } else {
       setMarkerResults({});
     }
+
+    setCustomMarkers([]);
   }, [selectedGroup, currentData]);
 
   if (!selectedGroup) {
@@ -165,9 +300,10 @@ export const Labeling = () => {
       </div>
     );
   }
+  const allMarkerData = [...(currentData || []), ...customMarkers];
 
   const uniqueMarkerIds = [
-    ...new Set(currentData.map((item) => item.marker_id)),
+    ...new Set(allMarkerData.map((item) => item.marker_id)),
   ].sort((a, b) => a - b);
 
   return (
@@ -175,15 +311,31 @@ export const Labeling = () => {
       {/* Actions Bar */}
       <div className="flex justify-between items-center p-4 bg-white">
         <div className="flex items-center space-x-3">
-          <div className="relative">
-            <div className="text-4xl animate-bounceIn">🏷️</div>
-          </div>
+          <div className="text-4xl animate-bounceIn">🏷️</div>
           <div className="flex flex-col">
             <h2 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
               Labeling
             </h2>
           </div>
+          <button
+            onClick={handleAddCustomMarker}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:from-emerald-600 hover:to-green-600 font-medium shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-300 group"
+          >
+            <svg
+              className="w-4 h-4 group-hover:animate-bounce"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <span className="text-lg">เพิ่มข้อมูล</span>
+          </button>
         </div>
+
         <div className="flex items-center space-x-3">
           <button
             onClick={handleSelectAllNormal}
@@ -217,7 +369,7 @@ export const Labeling = () => {
                 clipRule="evenodd"
               />
             </svg>
-            <span className="text-lg">ไม่ปกติทั้งหมด</span>
+            <span className="text-lg">ผิดปกติทั้งหมด</span>
           </button>
         </div>
         <button
@@ -258,10 +410,16 @@ export const Labeling = () => {
                     Mark ID
                   </th>
                   <th className="px-4 py-3 text-left text-lg font-semibold text-gray-700">
+                    Timestamp
+                  </th>
+                  <th className="px-4 py-3 text-left text-lg font-semibold text-gray-700">
                     <span className="text-green-600">ปกติ</span>
                   </th>
                   <th className="px-4 py-3 text-left text-lg font-semibold text-gray-700">
-                    <span className="text-orange-600">ไม่ปกติ</span>
+                    <span className="text-orange-600">ผิดปกติ</span>
+                  </th>
+                  <th className="px-4 py-3 text-left text-lg font-semibold text-gray-700">
+                    Fuel Diff (5min)
                   </th>
                   <th className="px-4 py-3 text-center text-lg font-semibold text-gray-700">
                     <span className="text-blue-600">จำนวนลิตรน้ำมัน</span>
@@ -270,10 +428,11 @@ export const Labeling = () => {
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {uniqueMarkerIds.map((markerId) => {
-                  const markerData = currentData.find(
+                  const markerData = allMarkerData.find(
                     (item) => item.marker_id === markerId
                   );
                   const currentResult = markerResults[markerId];
+                  const isCustomMarker = markerData?.isCustom;
 
                   return (
                     <tr
@@ -281,15 +440,58 @@ export const Labeling = () => {
                       className={`hover:bg-blue-50 transition-colors ${
                         currentResult?.result === "ปกติ"
                           ? "bg-white"
-                          : currentResult?.result === "ไม่ปกติ"
+                          : currentResult?.result === "ผิดปกติ"
                           ? "bg-white"
                           : "bg-gray-50"
                       }`}
                     >
                       <td className="px-4 py-3">
-                        <div className="flex items-center">
-                          <span className="text-xl font-semibold text-gray-900 font-mono">
+                        <div className="flex items-center justify-between">
+                          <span
+                            className={`text-xl font-semibold font-mono ${
+                              isCustomMarker
+                                ? "text-green-600"
+                                : "text-gray-900"
+                            }`}
+                          >
                             {markerId}
+                            {isCustomMarker && (
+                              <span className="ml-2 text-md bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                                NEW
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center">
+                          <span
+                            className={`text-xl font-medium px-2 py-1 rounded font-mono`}
+                          >
+                            {markerData?.datetime5mins &&
+                            !customMarkers.find(
+                              (m) => m.marker_id === markerId
+                            ) ? (
+                              new Date(markerData.datetime5mins).toLocaleString(
+                                "th-TH",
+                                {
+                                  year: "numeric",
+                                  month: "2-digit",
+                                  day: "2-digit",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                }
+                              )
+                            ) : (
+                              <input
+                                type="text"
+                                className="border border-gray-300 bg-white text-start rounded px-2 py-1 w-52"
+                                placeholder="DD/MM/YYYY HH:MM"
+                                onChange={(e) =>
+                                  handleDateTimeChange(markerId, e.target.value)
+                                }
+                              />
+                            )}
                           </span>
                         </div>
                       </td>
@@ -335,17 +537,17 @@ export const Labeling = () => {
                           <input
                             type="radio"
                             name={`marker_${markerId}`}
-                            checked={currentResult?.result === "ไม่ปกติ"}
+                            checked={currentResult?.result === "ผิดปกติ"}
                             onChange={() =>
                               handleMarkerResultChange(
                                 markerId,
                                 markerData?._id,
-                                "ไม่ปกติ"
+                                "ผิดปกติ"
                               )
                             }
                             className="sr-only"
                           />
-                          {currentResult?.result === "ไม่ปกติ" ? (
+                          {currentResult?.result === "ผิดปกติ" ? (
                             <div className="flex items-center justify-center w-28 h-8 bg-gradient-to-r from-orange-400 to-red-500 text-white rounded-full shadow-lg transform hover:scale-105 transition-all">
                               <svg
                                 className="w-8 h-8 mr-1 "
@@ -367,6 +569,30 @@ export const Labeling = () => {
                           )}
                         </label>
                       </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center">
+                          <span
+                            className={`text-xl font-medium font-mono px-2 py-1 rounded-md ${
+                              isCustomMarker
+                                ? "text-purple-700 bg-purple-50"
+                                : markerData?.fuel_diff_5min_ago
+                                ? parseFloat(markerData.fuel_diff_5min_ago) > 0
+                                  ? "text-green-700 bg-green-50"
+                                  : parseFloat(markerData.fuel_diff_5min_ago) <
+                                    0
+                                  ? "text-red-700 bg-red-50"
+                                  : "text-gray-700 bg-gray-50"
+                                : "text-gray-500"
+                            }`}
+                          >
+                            {isCustomMarker
+                              ? ""
+                              : markerData?.fuel_diff_5min_ago
+                              ? `${markerData.fuel_diff_5min_ago.toFixed(2)} L`
+                              : "N/A"}
+                          </span>
+                        </div>
+                      </td>
                       <td className="px-4 py-3 text-center">
                         <div className="relative">
                           <input
@@ -378,14 +604,40 @@ export const Labeling = () => {
                             onChange={(e) =>
                               handleLiterChange(markerId, e.target.value)
                             }
-                            disabled={currentResult?.result !== "ไม่ปกติ"}
+                            disabled={currentResult?.result !== "ผิดปกติ"}
                             className={`w-24 h-10 px-3 py-2 text-center border-2 rounded-xl text-lg font-semibold transition-all duration-300 ${
-                              currentResult?.result === "ไม่ปกติ"
+                              currentResult?.result === "ผิดปกติ"
                                 ? "border-orange-400 bg-white text-orange-800 focus:ring-4 focus:ring-orange-200 focus:border-orange-500 shadow-md hover:shadow-lg transform hover:scale-105"
                                 : "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
                             }`}
                           />
                         </div>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {isCustomMarker && (
+                          <button
+                            onClick={() => handleDeleteCustomMarker(markerId)}
+                            className="ml-2 p-2 bg-red-100 hover:bg-red-200 text-red-600 hover:scale-110 cursor-pointer rounded-full transition-colors duration-200 group"
+                            title="ลบ Marker นี้"
+                          >
+                            <svg
+                              className="w-8 h-8 group-hover:animate-pulse"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"
+                                clipRule="evenodd"
+                              />
+                              <path
+                                fillRule="evenodd"
+                                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -395,7 +647,7 @@ export const Labeling = () => {
           </div>
 
           {/* Status Summary */}
-          <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="border-t border-gray-200">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
                 <svg
@@ -411,7 +663,6 @@ export const Labeling = () => {
               </div>
               <div className="flex space-x-3">
                 <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
-              
                   <span className="font-semibold text-gray-700">
                     ปกติ:{" "}
                     {
@@ -422,23 +673,15 @@ export const Labeling = () => {
                   </span>
                 </div>
                 <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
-               
                   <span className="font-semibold text-gray-700">
-                    ไม่ปกติ:{" "}
+                    ผิดปกติ:{" "}
                     {
                       Object.values(markerResults).filter(
-                        (v) => v?.result === "ไม่ปกติ"
+                        (v) => v?.result === "ผิดปกติ"
                       ).length
                     }
                   </span>
                 </div>
-                {/* <div className="hidden items-center gap-2 bg-white px-3 py-2 rounded-lg border border-gray-200">
-                  <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
-                  <span className="font-semibold text-gray-600">
-                    ยังไม่ตัดสินใจ:{" "}
-                    {uniqueMarkerIds.length - Object.keys(markerResults).length}
-                  </span>
-                </div> */}
               </div>
             </div>
           </div>

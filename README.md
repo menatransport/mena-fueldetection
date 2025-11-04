@@ -8,43 +8,12 @@
 - **Next.js 16.0.1** - React Framework พร้อม App Router
 - **TypeScript 5** - Type-safe JavaScript
 - **Tailwind CSS 4** - Utility-first CSS Framework
+- **React Hooks** - useState, useEffect, useContext
 
 ### Backend & Database
 - **MongoDB** - NoSQL Database
+- **Mongoose** - MongoDB Object Modeling
 - **Next.js API Routes** - Backend API
-
-### Additional Libraries
-- **Lucide React** - Icon Library
-- **Date-fns** - Date Utility Library
-
-### การติดตั้ง
-
-1. **Clone Repository**
-```bash
-git clone <repository-url>
-cd fuel-detection
-```
-
-2. **ติดตั้ง Dependencies**
-```bash
-npm install
-# หรือ
-yarn install
-```
-
-3. **ตั้งค่า Environment Variables**
-สร้างไฟล์ `.env.local` และเพิ่มตัวแป: ????
-
-
-4. **รันเซิร์ฟเวอร์พัฒนา**
-```bash
-npm run dev
-# หรือ
-yarn dev
-```
-
-5. **เปิดเว็บเบราว์เซอร์**
-ไปที่ [http://localhost:3000](http://localhost:3000)
 
 ## โครงสร้างโปรเจค
 
@@ -52,14 +21,15 @@ yarn dev
 ├── app/                    # Next.js App Router
 │   ├── api/               # API Routes
 │   │   ├── fuel-data/     # API สำหรับดึงข้อมูลเชื้อเพลิง
-│   │   └── update/        # API สำหรับอัปเดตข้อมูล
+│   │   ├── update/        # API สำหรับอัปเดตข้อมูล
+│   │   └── create/        # API สำหรับสร้างข้อมูลใหม่
 │   ├── globals.css        # CSS ส่วนกลาง
 │   ├── layout.tsx         # Layout หลัก
 │   └── page.tsx           # หน้าแรก
 ├── components/            # React Components
 │   ├── graph.jsx          # คอมโพเนนต์แสดงกราฟ
 │   ├── table.jsx          # คอมโพเนนต์แสดงตาราง
-│   └── labeling.jsx       # คอมโพเนนต์จัดการป้ายกำกับ
+│   └── labeling.jsx       # คอมโพเนนต์จัดการป้ายกำกับและเพิ่มข้อมูล
 ├── contexts/              # React Contexts
 │   └── FuelDataContext.jsx # Context สำหรับจัดการข้อมูล
 ├── lib/                   # Utility Libraries
@@ -92,15 +62,39 @@ fetch('/api/fuel-data?vehicle=ABC123')
 fetch('/api/fuel-data?grouped=true')
 ```
 
-### POST /api/update
-อัปเดตข้อมูลการใช้เชื้อเพลิง
+### PUT /api/update
+อัปเดตข้อมูลการใช้เชื้อเพลิงที่มีอยู่แล้ว
 
 **Request Body:**
 ```json
 {
-  "id": "item_id",
-  "result": "ปกติ" | "ไม่ปกติ",
-  "liter": 50.5
+  "updates": [
+    {
+      "_id": "item_id",
+      "marker_id": 123,
+      "result": "ปกติ" | "ไม่ปกติ",
+      "liter": 50.5
+    }
+  ]
+}
+```
+
+### POST /api/create
+สร้างข้อมูลการใช้เชื้อเพลิงใหม่
+
+**Request Body:**
+```json
+{
+  "records": [
+    {
+      "marker_id": 124,
+      "datetime5mins": "01/10/2568 16:35",
+      "result": "ไม่ปกติ",
+      "liter": 15.5,
+      "fuel_diff_5min_ago": null,
+      "group_id": "group_123"
+    }
+  ]
 }
 ```
 
@@ -109,14 +103,17 @@ fetch('/api/fuel-data?grouped=true')
 ### Fuel Detection Schema
 ```javascript
 {
-  id: String,              // รหัสอ้างอิง
-  ทะเบียนพาหนะ: String,      // หมายเลขทะเบียนรถ
-  วันที่: String,           // วันที่บันทึกข้อมูล
-  marker_id: Number,       // รหัสจุดมาร์กเกอร์
-  chart_url: String,       // URL ของแผนภูมิ
-  result: String,          // ผลการตรวจสอบ (ปกติ/ไม่ปกติ)
-  liter: Number,           // ปริมาณเชื้อเพลิง (ลิตร)
-  updated_at: Date         // วันที่อัปเดต
+  id: String,                    // รหัสอ้างอิงกลุ่ม
+  ทะเบียนพาหนะ: String,            // หมายเลขทะเบียนรถ
+  วันที่: String,                 // วันที่บันทึกข้อมูลเริ่มต้น
+  datetime5mins: Date,           // วันที่และเวลาที่แท้จริง (ISO Date)
+  marker_id: Number,             // รหัสจุดมาร์กเกอร์ (unique)
+  chart_url: String,             // URL ของแผนภูมิ
+  result: String,                // ผลการตรวจสอบ (ปกติ/ไม่ปกติ)
+  liter: Number,                 // ปริมาณเชื้อเพลิงที่รั่วไหล (ลิตร)
+  fuel_diff_5min_ago: Number,    // ความแตกต่างเชื้อเพลิงจาก 5 นาทีที่แล้ว
+  created_by: String,            // ผู้สร้างข้อมูล
+  updated_at: Date               // วันที่อัปเดตล่าสุด
 }
 ```
 
