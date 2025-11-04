@@ -18,6 +18,7 @@ export const FuelDataProvider = ({ children }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [pagination, setPagination] = useState({});
   const [onPageChangeCallback, setOnPageChangeCallback] = useState(null);
+  const [refreshTableCallback, setRefreshTableCallback] = useState(null);
   const [justWrapped, setJustWrapped] = useState(false);
 
   const selectGroup = (group) => {
@@ -27,7 +28,6 @@ export const FuelDataProvider = ({ children }) => {
       setCurrentIndex(index);
     }
     setJustWrapped(false); 
-    console.log('Selected group in context:', group);
   };
 
   const setGroupsData = (groups) => {
@@ -94,6 +94,16 @@ export const FuelDataProvider = ({ children }) => {
     setOnPageChangeCallback(() => callback);
   };
 
+  const setRefreshTableCallbackHandler = (callback) => {
+    setRefreshTableCallback(() => callback);
+  };
+
+  const refreshTableData = () => {
+    if (refreshTableCallback) {
+      refreshTableCallback();
+    }
+  };
+
   const value = {
     selectedGroup,
     selectGroup,
@@ -102,9 +112,11 @@ export const FuelDataProvider = ({ children }) => {
     navigateToPrevious,
     navigateToNext,
     currentIndex,
+    setCurrentIndex,
     setPaginationData,
     setPageChangeCallback,
-    setRefreshTableCallback: () => {},
+    setRefreshTableCallback: setRefreshTableCallbackHandler,
+    refreshTableData,
     justWrapped,
     setJustWrapped,
   };

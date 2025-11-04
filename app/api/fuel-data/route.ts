@@ -9,15 +9,38 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '10', 10);
     const vehicle = searchParams.get('vehicle');
-    const grouped = searchParams.get('grouped') === 'true'; 
+    const grouped = searchParams.get('grouped') === 'true';
+    
+    // Filter parameters
+    const filterId = searchParams.get('filterId');
+    const filterDate = searchParams.get('filterDate');
+    const filterStatus = searchParams.get('filterStatus');
     
     const filter: any = {};
     if (vehicle) {
       filter.ทะเบียนพาหนะ = vehicle;
     }
     
+    if (filterId) {
+      filter.id = { $regex: filterId, $options: 'i' }; 
+    }
+    
+
+    if (filterDate) {
+      filter.วันที่ = { $regex: filterDate, $options: 'i' }; 
+    }
+
+
+    if (!grouped) {
+      if (filterStatus == 'pending') {
+        filter.result = { $in: [null, "", undefined] }; 
+      } else if (filterStatus == 'completed') {
+        filter.result = { $nin: [null, "", undefined] }; 
+      }
+    }
+    
     if (grouped) {
-      const aggregationPipeline: any[] = [
+      let aggregationPipeline: any[] = [
         { $match: filter }, 
         {
           $group: {
@@ -39,17 +62,71 @@ export async function GET(request: Request) {
           }
         },
         {
-          $project: {
-            id: "$_id",
-            _id: 0,
-            items: 1,
-            count: 1,
-            วันที่: 1,
-            chart_url: 1
+          $addFields: {
+            completedCount: {
+              $size: {
+                $filter: {
+                  input: "$items",
+                  cond: { 
+                    $and: [
+                      { $ne: ["$$this.result", null] },
+                      { $ne: ["$$this.result", ""] },
+                      { $ne: ["$$this.result", undefined] }
+                    ]
+                  }
+                }
+              }
+            },
+            status: {
+              $cond: {
+                if: {
+                  $eq: [
+                    {
+                      $size: {
+                        $filter: {
+                          input: "$items",
+                          cond: { 
+                            $and: [
+                              { $ne: ["$$this.result", null] },
+                              { $ne: ["$$this.result", ""] },
+                              { $ne: ["$$this.result", undefined] }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "$count"
+                  ]
+                },
+                then: "completed",
+                else: "pending"
+              }
+            }
           }
-        },
-        { $sort: { id: 1 } } 
+        }
       ];
+
+      if (filterStatus && filterStatus !== 'all') {
+        aggregationPipeline.push({
+          $match: { status: filterStatus }
+        });
+      }
+
+      aggregationPipeline.push({
+        $project: {
+          id: "$_id",
+          _id: 0,
+          items: 1,
+          count: 1,
+          วันที่: 1,
+          chart_url: 1,
+          completedCount: 1,
+          status: 1
+        }
+      });
+
+     
+      aggregationPipeline.push({ $sort: { id: 1 } });
       
   
       const skip = (page - 1) * limit;
@@ -59,11 +136,73 @@ export async function GET(request: Request) {
       const groupedData = await FuelDetection.aggregate(aggregationPipeline);
       
 
-      const totalGroupsResult = await FuelDetection.aggregate([
+      let totalGroupsPipeline: any[] = [
         { $match: filter },
-        { $group: { _id: "$id" } },
-        { $count: "totalGroups" }
-      ]);
+        {
+          $group: {
+            _id: "$id",
+            items: { 
+              $push: {
+                result: "$result"
+              }
+            },
+            count: { $sum: 1 }
+          }
+        }
+      ];
+
+      if (filterStatus && filterStatus !== 'all') {
+        totalGroupsPipeline.push({
+          $addFields: {
+            completedCount: {
+              $size: {
+                $filter: {
+                  input: "$items",
+                  cond: { 
+                    $and: [
+                      { $ne: ["$$this.result", null] },
+                      { $ne: ["$$this.result", ""] },
+                      { $ne: ["$$this.result", undefined] }
+                    ]
+                  }
+                }
+              }
+            },
+            status: {
+              $cond: {
+                if: {
+                  $eq: [
+                    {
+                      $size: {
+                        $filter: {
+                          input: "$items",
+                          cond: { 
+                            $and: [
+                              { $ne: ["$$this.result", null] },
+                              { $ne: ["$$this.result", ""] },
+                              { $ne: ["$$this.result", undefined] }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "$count"
+                  ]
+                },
+                then: "completed",
+                else: "pending"
+              }
+            }
+          }
+        });
+        totalGroupsPipeline.push({
+          $match: { status: filterStatus }
+        });
+      }
+
+      totalGroupsPipeline.push({ $count: "totalGroups" });
+      
+      const totalGroupsResult = await FuelDetection.aggregate(totalGroupsPipeline);
       
       const totalGroups = totalGroupsResult[0]?.totalGroups || 0;
  

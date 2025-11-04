@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useFuelData } from '@/contexts/FuelDataContext';
+import { ListFilter } from 'lucide-react';
 
 export const Table = () => {
     const [data, setData] = useState([]);
@@ -11,14 +12,38 @@ export const Table = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [pagination, setPagination] = useState({});
     const [selectedRowId, setSelectedRowId] = useState();
-    const { selectGroup, setGroupsData, selectedGroup, setPaginationData, setPageChangeCallback, setRefreshTableCallback } = useFuelData();
+    const [filters, setFilters] = useState({
+        id: '',
+        date: '',
+        status: 'all' // all, pending, completed
+    });
+    const [showFilters, setShowFilters] = useState(false);
+    const { selectGroup, setGroupsData, selectedGroup, setPaginationData, setPageChangeCallback, setRefreshTableCallback, setCurrentIndex } = useFuelData();
     
     const limit = 5; 
 
-    const fetchData = async (page = 1, selectLast = false) => {
+    const fetchData = async (page = 1, selectLast = false, filterParams = {}) => {
         try {
             setLoading(true);
-            const res = await fetch(`/api/fuel-data?grouped=true&page=${page}&limit=${limit}`);
+            
+            const queryParams = new URLSearchParams({
+                grouped: 'true',
+                page: page.toString(),
+                limit: limit.toString()
+            });
+
+            const currentFilters = { ...filters, ...filterParams };
+            if (currentFilters.id && currentFilters.id.trim()) {
+                queryParams.append('filterId', currentFilters.id.trim());
+            }
+            if (currentFilters.date && currentFilters.date.trim()) {
+                queryParams.append('filterDate', currentFilters.date.trim());
+            }
+            if (currentFilters.status && currentFilters.status !== 'all') {
+                queryParams.append('filterStatus', currentFilters.status);
+            }
+
+            const res = await fetch(`/api/fuel-data?${queryParams.toString()}`);
             const result = await res.json();
             
             if (result.success) {
@@ -46,8 +71,37 @@ export const Table = () => {
     const handlePageChange = async (newPage) => {
         if (newPage >= 1 && newPage <= pagination.totalPages) {
             setCurrentPage(newPage);
-            await fetchData(newPage);
+            await fetchData(newPage, false, filters);
         }
+    };
+
+    const handleFilterChange = (filterType, value) => {
+        setFilters(prev => ({
+            ...prev,
+            [filterType]: value
+        }));
+    };
+
+    const applyFilters = () => {
+        setCurrentPage(1);
+        setCurrentIndex(0);
+        fetchData(1, false, filters);
+        fetchData(1, false, filters);
+    };
+
+    const clearFilters = () => {
+        setFilters({
+            id: '',
+            date: '',
+            status: 'all'
+        });
+        setCurrentPage(1);
+        setCurrentIndex(0);
+        fetchData(1, false, {
+            id: '',
+            date: '',
+            status: 'all'
+        });
     };
 
     const handleNavigationPageChange = async (direction) => {
@@ -64,7 +118,7 @@ export const Table = () => {
         
         if (newPage) {
             setCurrentPage(newPage);
-            await fetchData(newPage, selectLast);
+            await fetchData(newPage, selectLast, filters);
         }
     };
 
@@ -109,10 +163,10 @@ export const Table = () => {
 
     useEffect(() => {
         const refreshTable = () => {
-            fetchData(currentPage);
+            fetchData(currentPage, false, filters);
         };
         setRefreshTableCallback(refreshTable);
-    }, [currentPage]);
+    }, [currentPage, filters]);
 
     useEffect(() => {
         if (selectedGroup && selectedGroup.id) {
@@ -153,7 +207,114 @@ export const Table = () => {
         <div className="space-y-6">
             {/* DataTable */}
             <div className="bg-white rounded-lg shadow-md overflow-hidden m-4">
-                
+                {/* Filter Section */}
+                <div className="bg-gray-50 border-b border-gray-200">
+                    <div className="px-6 py-3">
+                        <button
+                            onClick={() => setShowFilters(!showFilters)}
+                            className="flex items-center text-gray-700 hover:text-blue-600 transition-colors"
+                        >
+                            <ListFilter className="mr-2" size={20} />
+                            <span className="font-medium">ตัวกรองข้อมูล</span>
+                            <span className="ml-2 transform transition-transform duration-200" style={{
+                                transform: showFilters ? 'rotate(180deg)' : 'rotate(0deg)'
+                            }}>▼</span>
+                        </button>
+                    </div>
+                    
+                    {showFilters && (
+                        <div className="px-6 pb-4 space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                {/* ID Filter */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        ค้นหา ID
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={filters.id}
+                                        onChange={(e) => handleFilterChange('id', e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
+                                        placeholder="ใส่ ID ที่ต้องการค้นหา"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    />
+                                </div>
+
+                                {/* Date Filter */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        ค้นหา วันที่
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={filters.date}
+                                        onChange={(e) => handleFilterChange('date', e.target.value)}
+
+                                        onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
+                                        placeholder="เช่น 2025-10-01"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    />
+                                </div>
+
+                                {/* Status Filter */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        สถานะ
+                                    </label>
+                                    <select
+                                        value={filters.status}
+                                        onChange={(e) => {
+                                            handleFilterChange('status', e.target.value);
+                                        }}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    >
+                                        <option value="all">ทั้งหมด</option>
+                                        <option value="pending">Pending (รอดำเนินการ)</option>
+                                        <option value="completed">Completed (เสร็จสิ้น)</option>
+                                    </select>
+                                </div>
+
+                                {/* Filter Actions */}
+                                <div className="flex items-end space-x-2">
+                                    <button
+                                        onClick={applyFilters}
+                                        className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors font-medium"
+                                    >
+                                        กรองข้อมูล
+                                    </button>
+                                    <button
+                                        onClick={clearFilters}
+                                        className="flex-1 bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 transition-colors font-medium"
+                                    >
+                                        ล้างตัวกรอง
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Active Filters Display
+                            {(filters.id || filters.date || filters.status !== 'all') && (
+                                <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
+                                    <span className="text-sm text-gray-600 font-medium">ตัวกรองที่ใช้งาน:</span>
+                                    {filters.id && (
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            ID: {filters.id}
+                                        </span>
+                                    )}
+                                    {filters.date && (
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                            วันที่: {filters.date}
+                                        </span>
+                                    )}
+                                    {filters.status !== 'all' && (
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                            สถานะ: {filters.status === 'pending' ? 'Pending' : 'Completed'}
+                                        </span>
+                                    )}
+                                </div>
+                            )} */}
+                        </div>
+                    )}
+                </div>
 
                 {/* Table */}
                 <div className="overflow-x-auto max-h-125 overflow-y-auto">
@@ -167,7 +328,7 @@ export const Table = () => {
                                     Date
                                 </th>
                                 <th className="px-6 py-3 text-left text-lg font-medium text-white uppercase tracking-wider">
-                                    Mark ID
+                                    Mark ID 
                                 </th>
                                 <th className="px-6 py-3 text-left text-lg font-medium text-white uppercase tracking-wider">
                                     Status

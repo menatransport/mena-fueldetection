@@ -68,7 +68,7 @@ export const Labeling = () => {
     Object.entries(markerResults).forEach(([markerId, data]) => {
       if (
         data.result === "ไม่ปกติ" &&
-        (!data.liter || data.liter.trim() === "")
+        (!data.liter)
       ) {
         incompleteMarkers.push(markerId);
       } else if (data.result) {
@@ -77,7 +77,7 @@ export const Labeling = () => {
           marker_id: parseInt(markerId),
           result: data.result,
           liter:
-            data.result === "ไม่ปกติ" ? parseFloat(data.liter) || null : null,
+            data.result === "ไม่ปกติ" ? (parseFloat(data.liter) || 0) : null,
         });
       }
     });
@@ -98,6 +98,7 @@ export const Labeling = () => {
 
     try {
       setIsSubmitting(true);
+      console.log("Sending updates:", updates);
 
       const response = await fetch("/api/update", {
         method: "PUT",

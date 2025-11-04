@@ -34,9 +34,9 @@ export async function PUT(request: Request) {
       }
 
       // Validate liter for abnormal results
-      if (update.result === 'ไม่ปกติ' && (update.liter === null || update.liter === undefined)) {
+      if (update.result === 'ไม่ปกติ' && (update.liter === null || update.liter === undefined || isNaN(update.liter))) {
         return NextResponse.json(
-          { success: false, message: "Liter value is required for abnormal results" },
+          { success: false, message: "Valid liter value is required for abnormal results" },
           { status: 400 }
         );
       }
