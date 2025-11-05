@@ -216,7 +216,7 @@ export const Table = () => {
   return (
     <div className="space-y-6">
       {/* DataTable */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden m-4">
+      <div className="bg-white rounded-lg shadow-xl overflow-hidden m-4">
         {/* Filter Section */}
         <div className="bg-gray-50 border-b border-gray-200">
           <div className="px-6 py-3">
@@ -309,7 +309,7 @@ export const Table = () => {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto max-h-125 overflow-y-auto">
+        <div className="overflow-x-auto max-h-auto overflow-y-auto">
           <table className="w-full">
             <thead className="bg-gray-600 sticky top-0 z-10">
               <tr>

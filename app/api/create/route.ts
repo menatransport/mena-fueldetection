@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { FuelDetection } from "@/models/Item";
-import cluster from "cluster";
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,38 +9,40 @@ export async function POST(request: NextRequest) {
     const { records } = await request.json();
 
     const itemsToCreate = records.map((record: any) => {
-      // แปลงรูปแบบวันที่จาก "01/10/2568 16:00" เป็น ISO Date
       let convertedDateTime = null;
       if (record.datetime5mins) {
         try {
-          // แยกวันที่และเวลา
-          const [datePart, timePart] = record.datetime5mins.split(' ');
-          const [day, month, year] = datePart.split('/');
-          const [hour, minute] = (timePart || '00:00').split(':');
+          console.log("Original datetime5mins:", record.datetime5mins);
           
-          // สร้าง Date object
-          convertedDateTime = new Date(
-            parseInt(year) - 543,
-            parseInt(month) - 1, // เดือนเริ่มจาก 0
-            parseInt(day),
-            parseInt(hour),
-            parseInt(minute),
-            0,
-            0
-          );
-          console.log("Converted DateTime:", convertedDateTime);
-          // ตรวจสอบว่าวันที่ถูกต้องหรือไม่
-          if (isNaN(convertedDateTime.getTime())) {
+          // ทำความสะอาดข้อมูลและแยกวันที่และเวลา
+          const cleanedDateTime = record.datetime5mins.trim();
+          console.log("Cleaned datetime5mins:", cleanedDateTime);
+          
+          const [datePart, timePart = '00:00'] = cleanedDateTime.split(' ');
+          const [year, month, day] = datePart.split('-');
+          const [hour, minute] = timePart.split(':');
+          console.log('Parsed DateTime:', year + "-" + month + "-" + day + "T" + hour + ":" + minute + ":00Z");
+
+          const dateObject = new Date(year + "-" + month + "-" + day + "T" + hour + ":" + minute + ":00Z");
+          
+          if (isNaN(dateObject.getTime())) {
             throw new Error('Invalid date');
           }
+          
+          // แปลงเป็น ISO string format
+          convertedDateTime = dateObject.toISOString();
+          console.log("Converted DateTime (ISO):", convertedDateTime);
+          console.log("Expected format: YYYY-MM-DDTHH:mm:ss.sssZ");
+      
+          
         } catch (error) {
           console.warn(`ไม่สามารถแปลงวันที่ ${record.datetime5mins}:`, error);
-          convertedDateTime = new Date(); // ใช้วันที่ปัจจุบันเป็น fallback
+          convertedDateTime = new Date().toISOString(); 
         }
       }
 
       return {
-        marker_id: record.marker_id,
+        mark_id: record.mark_id,
         datetime5mins: convertedDateTime,
         result: record.result,
         liter: record.liter || null,

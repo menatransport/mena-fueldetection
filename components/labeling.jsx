@@ -257,6 +257,8 @@ export const Labeling = () => {
       alert("เกิดข้อผิดพลาด: " + error.message);
     } finally {
       setIsSubmitting(false);
+      // ปิดโหลดหน้ากราฟ
+     
     }
   };
 
@@ -308,7 +310,7 @@ export const Labeling = () => {
   ].sort((a, b) => a - b);
 
   return (
-    <div className="w-full max-h-auto bg-white rounded-lg shadow-lg p-2 overflow-y-auto">
+    <div className="w-auto max-h-auto bg-white rounded-lg shadow-xl m-4 overflow-y-auto">
       {/* Actions Bar */}
       <div className="flex justify-between items-center p-4 bg-white">
         <div className="flex items-center space-x-3">
@@ -400,7 +402,7 @@ export const Labeling = () => {
       </div>
 
       {/* Mark ID Selection Table */}
-      <div className="mb-3">
+      <div className="mb-2">
         <div className="bg-gray-100 rounded-lg p-2">
           {/* Table */}
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden overflow-y-auto">
@@ -464,8 +466,8 @@ export const Labeling = () => {
                           </span>
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center">
+                      <td className="px-2 py-3">
+                        <div className="flex items-start">
                           <span
                             className={`text-xl font-medium px-2 py-1 rounded font-mono`}
                           >
@@ -473,21 +475,12 @@ export const Labeling = () => {
                             !customMarkers.find(
                               (m) => m.mark_id === markerId
                             ) ? (
-                              new Date(markerData.datetime5mins).toLocaleString(
-                                "th-TH",
-                                {
-                                  year: "numeric",
-                                  month: "2-digit",
-                                  day: "2-digit",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                }
-                              )
+                             markerData?.datetime5mins.slice(0, 16).split('T', 2)[0] + ' ' + markerData?.datetime5mins.slice(0, 16).split('T', 2)[1]
                             ) : (
                               <input
                                 type="text"
-                                className="border border-gray-300 bg-white text-start rounded px-2 py-1 w-52"
-                                placeholder="DD/MM/YYYY HH:MM"
+                                className="border font-[system-ui] border-gray-300 bg-white text-left rounded px-1 py-1 w-52"
+                                placeholder="YYYY-MM-DD HH:MM"
                                 onChange={(e) =>
                                   handleDateTimeChange(markerId, e.target.value)
                                 }

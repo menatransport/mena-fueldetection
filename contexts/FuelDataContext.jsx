@@ -105,6 +105,7 @@ export const FuelDataProvider = ({ children }) => {
     }
   };
 
+
   const value = {
     selectedGroup,
     selectGroup,

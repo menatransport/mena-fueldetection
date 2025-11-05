@@ -18,14 +18,17 @@ export const Graph = () => {
 
   useEffect(() => {
     if (selectedGroup && selectedGroup.chart_url) {
-      console.log("Loading chart for group:", selectedGroup.chart_url);
+      // console.log("Loading chart for group:", selectedGroup.chart_url);
       setCurrentImageUrl(selectedGroup.chart_url);
-      setIsImageLoaded(false);
+      setIsImageLoaded(true);
+
     } else {
       setCurrentImageUrl(defaultImageUrl);
-      setIsImageLoaded(false);
+      setIsImageLoaded(true);
     }
   }, [selectedGroup]);
+
+
 
   const handleImageLoad = () => {
     setIsImageLoaded(true);
@@ -69,10 +72,10 @@ export const Graph = () => {
 
   return (
     <>
-      <div className={`w-full h-full p-1 bg-white rounded-lg shadow-lg`}>
+      <div className={`w-auto h-full p-1 rounded-lg`}>
         {/* Chart Container */}
         <div
-          className="relative bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 border-2 border-dashed border-gray-300 hover:border-blue-400 transition-all duration-300"
+          className="relative bg-gray-100 m-3  rounded-lg p-4 border-2 border-dashed border-gray-300 hover:border-blue-400 transition-all duration-300"
           style={{
             width: `auto`,
             height: `auto`,
@@ -102,7 +105,7 @@ export const Graph = () => {
                 alt={`Fuel Detection Chart for ${
                   selectedGroup?.id || "Default"
                 }`}
-                className={`max-w-full max-h-full object-contain rounded-lg shadow-md transition-all duration-300 transform ${
+                className={`max-w-full object-contain rounded-lg shadow-md transition-all duration-300 transform ${
                   isImageLoaded ? "opacity-100" : "opacity-0"
                 }`}
                 onLoad={handleImageLoad}
@@ -134,7 +137,9 @@ export const Graph = () => {
             )}
 
             <div
-              className="absolute bottom-2 right-32 bg-opacity-80 hover:opacity-100 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full cursor-pointer transition-all duration-300 transform hover:scale-110 shadow-lg"
+              className={`absolute bottom-2 right-32 bg-opacity-80 hover:opacity-100 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full cursor-pointer transition-all duration-300 transform hover:scale-110 shadow-lg ${
+                  isImageLoaded ? "opacity-100" : "opacity-0"
+                }`}
               onClick={handlePrevious}
               title={`ไปซ้าย ${
                 allGroups.length > 0
@@ -157,7 +162,9 @@ export const Graph = () => {
               </svg>
             </div>
             <div
-              className="absolute bottom-2 right-2 bg-opacity-80 hover:opacity-100 bg-blue-500 hover:bg-blue-600 text-white  p-2 rounded-full cursor-pointer transition-all duration-300 transform hover:scale-110 shadow-lg"
+              className={`absolute bottom-2 right-2 bg-opacity-80 hover:opacity-100 bg-blue-500 hover:bg-blue-600 text-white  p-2 rounded-full cursor-pointer transition-all duration-300 transform hover:scale-110 shadow-lg ${
+                isImageLoaded ? "opacity-100" : "opacity-0"
+              }`}
               onClick={handleNext}
               title={`ไปขวา ${
                 allGroups.length > 0

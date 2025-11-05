@@ -2,6 +2,8 @@
 
 body {
   zoom:60%;
+  background-color: hsl(212, 86%, 86%);
+  /* background-color: rgb(231, 231, 231); */
 }
 
 /* Custom animations */
