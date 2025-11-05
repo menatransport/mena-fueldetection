@@ -26,7 +26,7 @@ export const Labeling = () => {
   const handleDateTimeChange = (markerId, datetime) => {
     setCustomMarkers((prev) =>
       prev.map((marker) =>
-        marker.marker_id === markerId
+        marker.mark_id === markerId
           ? { ...marker, datetime5mins: datetime }
           : marker
       )
@@ -47,7 +47,7 @@ export const Labeling = () => {
     const newState = {};
     if (currentData) {
       currentData.forEach((item) => {
-        newState[item.marker_id] = {
+        newState[item.mark_id] = {
           mongoId: item._id,
           result: "ปกติ",
           liter: null,
@@ -56,7 +56,7 @@ export const Labeling = () => {
     }
 
     customMarkers.forEach((marker) => {
-      newState[marker.marker_id] = {
+      newState[marker.mark_id] = {
         mongoId: null,
         result: "ปกติ",
         liter: null,
@@ -70,19 +70,19 @@ export const Labeling = () => {
     const newState = {};
     if (currentData) {
       currentData.forEach((item) => {
-        newState[item.marker_id] = {
+        newState[item.mark_id] = {
           mongoId: item._id,
           result: "ผิดปกติ",
-          liter: markerResults[item.marker_id]?.liter || "",
+          liter: markerResults[item.mark_id]?.liter || "",
         };
       });
     }
 
     customMarkers.forEach((marker) => {
-      newState[marker.marker_id] = {
+      newState[marker.mark_id] = {
         mongoId: null,
         result: "ผิดปกติ",
-        liter: markerResults[marker.marker_id]?.liter || "",
+        liter: markerResults[marker.mark_id]?.liter || "",
         isCustom: true,
       };
     });
@@ -91,15 +91,15 @@ export const Labeling = () => {
 
   const handleAddCustomMarker = () => {
     const existingMarkerIds = [
-      ...(currentData ? currentData.map((item) => item.marker_id) : []),
-      ...customMarkers.map((marker) => marker.marker_id),
+      ...(currentData ? currentData.map((item) => item.mark_id) : []),
+      ...customMarkers.map((marker) => marker.mark_id),
     ];
 
     const nextMarkerId =
       existingMarkerIds.length > 0 ? Math.max(...existingMarkerIds) + 1 : 1;
 
     const newCustomMarker = {
-      marker_id: nextMarkerId,
+      mark_id: nextMarkerId,
       _id: `custom_${Date.now()}`,
       datetime5mins: null,
       fuel_diff_5min_ago: 0,
@@ -113,7 +113,7 @@ export const Labeling = () => {
 
   const handleDeleteCustomMarker = (markerId) => {
     setCustomMarkers((prev) =>
-      prev.filter((marker) => marker.marker_id !== markerId)
+      prev.filter((marker) => marker.mark_id !== markerId)
     );
     setMarkerResults((prev) => {
       const newResults = { ...prev };
@@ -130,7 +130,7 @@ export const Labeling = () => {
 
     Object.entries(markerResults).forEach(([markerId, data]) => {
       const markerData = allMarkerData.find(
-        (item) => item.marker_id === parseInt(markerId)
+        (item) => item.mark_id === parseInt(markerId)
       );
       const isCustomMarker = markerData?.isCustom;
 
@@ -145,7 +145,7 @@ export const Labeling = () => {
       } else if (data.result) {
         if (isCustomMarker) {
           newRecords.push({
-            marker_id: parseInt(markerId),
+            mark_id: parseInt(markerId),
             datetime5mins: markerData?.datetime5mins,
             result: data.result,
             liter:
@@ -156,7 +156,7 @@ export const Labeling = () => {
         } else {
           updates.push({
             _id: data.mongoId,
-            marker_id: parseInt(markerId),
+            mark_id: parseInt(markerId),
             result: data.result,
             liter:
               data.result === "ผิดปกติ" ? parseFloat(data.liter) || 0 : null,
@@ -261,10 +261,11 @@ export const Labeling = () => {
   };
 
   useEffect(() => {
+    console.log('currentData', currentData);
     if (currentData && currentData.length > 0) {
       const results = {};
       currentData.forEach((item) => {
-        results[item.marker_id] = {
+        results[item.mark_id] = {
           mongoId: item._id,
           result: item.result,
           liter: item.liter || null,
@@ -303,7 +304,7 @@ export const Labeling = () => {
   const allMarkerData = [...(currentData || []), ...customMarkers];
 
   const uniqueMarkerIds = [
-    ...new Set(allMarkerData.map((item) => item.marker_id)),
+    ...new Set(allMarkerData.map((item) => item.mark_id)),
   ].sort((a, b) => a - b);
 
   return (
@@ -429,7 +430,7 @@ export const Labeling = () => {
               <tbody className="divide-y divide-gray-200">
                 {uniqueMarkerIds.map((markerId) => {
                   const markerData = allMarkerData.find(
-                    (item) => item.marker_id === markerId
+                    (item) => item.mark_id === markerId
                   );
                   const currentResult = markerResults[markerId];
                   const isCustomMarker = markerData?.isCustom;
@@ -470,7 +471,7 @@ export const Labeling = () => {
                           >
                             {markerData?.datetime5mins &&
                             !customMarkers.find(
-                              (m) => m.marker_id === markerId
+                              (m) => m.mark_id === markerId
                             ) ? (
                               new Date(markerData.datetime5mins).toLocaleString(
                                 "th-TH",

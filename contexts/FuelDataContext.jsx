@@ -22,6 +22,7 @@ export const FuelDataProvider = ({ children }) => {
   const [justWrapped, setJustWrapped] = useState(false);
 
   const selectGroup = (group) => {
+    // console.log("Selecting group:", group);
     setSelectedGroup(group);
     const index = allGroups.findIndex(g => g.id === group.id);
     if (index !== -1) {

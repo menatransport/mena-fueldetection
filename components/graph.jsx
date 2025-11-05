@@ -18,6 +18,7 @@ export const Graph = () => {
 
   useEffect(() => {
     if (selectedGroup && selectedGroup.chart_url) {
+      console.log("Loading chart for group:", selectedGroup.chart_url);
       setCurrentImageUrl(selectedGroup.chart_url);
       setIsImageLoaded(false);
     } else {
@@ -76,7 +77,7 @@ export const Graph = () => {
             width: `auto`,
             height: `auto`,
             minWidth: "300px",
-            minHeight: "200px",
+            minHeight: "300px",
             maxWidth: "100%",
           }}
         >
@@ -217,7 +218,7 @@ export const Graph = () => {
             <img
               src={currentImageUrl}
               alt={`Full Size Chart for ${selectedGroup?.id || "Default"}`}
-              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl border-4 border-white"
+              className="max-w-full max-h-[1200px] object-contain rounded-lg shadow-2xl border-4 border-white"
             />
           </div>
         </div>

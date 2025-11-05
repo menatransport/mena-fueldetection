@@ -5,7 +5,7 @@ const FuelDetectionSchema = new Schema({
   "ทะเบียนพาหนะ": { type: String },
   "วันที่": { type: String },
   "datetime5mins": { type: Date, default: null },
-  "marker_id": { type: Number },
+  "mark_id": { type: Number },
   "chart_url": { type: String },
   "result": { type: String, enum: ['ปกติ', 'ผิดปกติ'], default: null },
   "liter": { type: Number, default: null },

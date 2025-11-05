@@ -50,7 +50,7 @@ export async function GET(request: Request) {
                 _id: "$_id",
                 ทะเบียนพาหนะ: "$ทะเบียนพาหนะ",
                 วันที่: "$วันที่",
-                marker_id: "$marker_id",
+                mark_id: "$mark_id",
                 result: "$result",
                 liter: "$liter",
                 updated_at: "$updated_at",
