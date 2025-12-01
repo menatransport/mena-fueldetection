@@ -10,34 +10,35 @@ export const Labeling = () => {
 
   const { selectedGroup, refreshTableData } = useFuelData();
   const currentData = selectedGroup?.items || null;
-
-  const handleMarkerResultChange = (markerId, mongoId, result) => {
+  
+  const handleMarkerResultChange = (itemId, markId, result) => {
     setMarkerResults((prev) => ({
       ...prev,
-      [markerId]: {
-        ...prev[markerId],
-        mongoId: mongoId,
+      [itemId]: {
+        ...prev[itemId],
+        mongoId: itemId.startsWith('custom_') ? null : itemId,
+        markId: markId,
         result: result,
-        liter: result === "ผิดปกติ" ? prev[markerId]?.liter || "" : null,
+        liter: result === "ผิดปกติ" ? prev[itemId]?.liter || "" : null,
       },
     }));
   };
 
-  const handleDateTimeChange = (markerId, datetime) => {
+  const handleDateTimeChange = (itemId, datetime) => {
     setCustomMarkers((prev) =>
       prev.map((marker) =>
-        marker.mark_id === markerId
+        marker._id === itemId
           ? { ...marker, datetime5mins: datetime }
           : marker
       )
     );
   };
 
-  const handleLiterChange = (markerId, liter) => {
+  const handleLiterChange = (itemId, liter) => {
     setMarkerResults((prev) => ({
       ...prev,
-      [markerId]: {
-        ...prev[markerId],
+      [itemId]: {
+        ...prev[itemId],
         liter: liter,
       },
     }));
@@ -47,8 +48,9 @@ export const Labeling = () => {
     const newState = {};
     if (currentData) {
       currentData.forEach((item) => {
-        newState[item.mark_id] = {
+        newState[item._id] = {
           mongoId: item._id,
+          markId: item.mark_id,
           result: "ปกติ",
           liter: null,
         };
@@ -56,8 +58,9 @@ export const Labeling = () => {
     }
 
     customMarkers.forEach((marker) => {
-      newState[marker.mark_id] = {
+      newState[marker._id] = {
         mongoId: null,
+        markId: marker.mark_id,
         result: "ปกติ",
         liter: null,
         isCustom: true,
@@ -70,19 +73,21 @@ export const Labeling = () => {
     const newState = {};
     if (currentData) {
       currentData.forEach((item) => {
-        newState[item.mark_id] = {
+        newState[item._id] = {
           mongoId: item._id,
+          markId: item.mark_id,
           result: "ผิดปกติ",
-          liter: markerResults[item.mark_id]?.liter || "",
+          liter: markerResults[item._id]?.liter || "",
         };
       });
     }
 
     customMarkers.forEach((marker) => {
-      newState[marker.mark_id] = {
+      newState[marker._id] = {
         mongoId: null,
+        markId: marker.mark_id,
         result: "ผิดปกติ",
-        liter: markerResults[marker.mark_id]?.liter || "",
+        liter: markerResults[marker._id]?.liter || "",
         isCustom: true,
       };
     });
@@ -111,13 +116,13 @@ export const Labeling = () => {
     setCustomMarkers((prev) => [...prev, newCustomMarker]);
   };
 
-  const handleDeleteCustomMarker = (markerId) => {
+  const handleDeleteCustomMarker = (itemId) => {
     setCustomMarkers((prev) =>
-      prev.filter((marker) => marker.mark_id !== markerId)
+      prev.filter((marker) => marker._id !== itemId)
     );
     setMarkerResults((prev) => {
       const newResults = { ...prev };
-      delete newResults[markerId];
+      delete newResults[itemId];
       return newResults;
     });
   };
@@ -128,24 +133,25 @@ export const Labeling = () => {
     const incompleteMarkers = [];
     const incompleteCustomMarkers = [];
 
-    Object.entries(markerResults).forEach(([markerId, data]) => {
+    Object.entries(markerResults).forEach(([itemId, data]) => {
       const markerData = allMarkerData.find(
-        (item) => item.mark_id === parseInt(markerId)
+        (item) => item._id === itemId
       );
       const isCustomMarker = markerData?.isCustom;
+      const displayMarkId = data.markId || markerData?.mark_id;
 
       if (data.result === "ผิดปกติ" && !data.liter) {
         if (isCustomMarker) {
-          incompleteCustomMarkers.push(markerId);
+          incompleteCustomMarkers.push(displayMarkId);
         } else {
-          incompleteMarkers.push(markerId);
+          incompleteMarkers.push(displayMarkId);
         }
       } else if (isCustomMarker && !markerData?.datetime5mins) {
-        incompleteCustomMarkers.push(`${markerId} (ไม่มี datetime)`);
+        incompleteCustomMarkers.push(`${displayMarkId} (ไม่มี datetime)`);
       } else if (data.result) {
         if (isCustomMarker) {
           newRecords.push({
-            mark_id: parseInt(markerId),
+            mark_id: parseInt(displayMarkId),
             datetime5mins: markerData?.datetime5mins,
             result: data.result,
             liter:
@@ -156,7 +162,7 @@ export const Labeling = () => {
         } else {
           updates.push({
             _id: data.mongoId,
-            mark_id: parseInt(markerId),
+            mark_id: parseInt(displayMarkId),
             result: data.result,
             liter:
               data.result === "ผิดปกติ" ? parseFloat(data.liter) || 0 : null,
@@ -262,24 +268,38 @@ export const Labeling = () => {
     }
   };
 
-  useEffect(() => {
-    console.log('currentData', currentData);
-    if (currentData && currentData.length > 0) {
-      const results = {};
-      currentData.forEach((item) => {
-        results[item.mark_id] = {
-          mongoId: item._id,
-          result: item.result,
-          liter: item.liter || null,
-        };
-      });
-      setMarkerResults(results);
-    } else {
-      setMarkerResults({});
-    }
+ useEffect(() => {
+  if (currentData && currentData.length > 0) {
+    const results = {};
+    console.log("Current Data:", currentData);
+    console.log("Current Data Length:", currentData.length);
+    
+    // แสดง mark_id ทั้งหมดเพื่อดูว่ามีซ้ำหรือไม่
+    const markIds = currentData.map(item => item.mark_id);
+    console.log("All mark_id:", markIds);
+    console.log("Unique mark_id:", [...new Set(markIds)]);
+    console.log("Has duplicate mark_id:", markIds.length !== new Set(markIds).size);
+    
+    // ใช้ _id เป็น key หลัก เพื่อไม่ให้ข้อมูลทับกัน
+    currentData.forEach((item) => {
+      results[item._id] = {
+        mongoId: item._id,
+        markId: item.mark_id,
+        result: item.result,
+        liter: item.liter || null,
+      };
+    });
+    
+    console.log("Marker Results Set To:", results);
+    console.log("Marker Results Count:", Object.keys(results).length);
 
-    setCustomMarkers([]);
-  }, [selectedGroup, currentData]);
+    setMarkerResults(results);
+  } else {
+    setMarkerResults({});
+  }
+
+  setCustomMarkers([]);
+}, [selectedGroup, currentData]);
 
   if (!selectedGroup) {
     return (
@@ -305,9 +325,8 @@ export const Labeling = () => {
   }
   const allMarkerData = [...(currentData || []), ...customMarkers];
 
-  const uniqueMarkerIds = [
-    ...new Set(allMarkerData.map((item) => item.mark_id)),
-  ].sort((a, b) => a - b);
+  // แสดงข้อมูลทั้งหมด ไม่ใช่แค่ unique เพื่อรองรับ mark_id ซ้ำ
+  const allMarkerItems = allMarkerData.sort((a, b) => a.mark_id - b.mark_id);
 
   return (
     <div className="w-auto max-h-auto bg-white rounded-lg shadow-xl m-4 overflow-y-auto">
@@ -430,16 +449,15 @@ export const Labeling = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {uniqueMarkerIds.map((markerId) => {
-                  const markerData = allMarkerData.find(
-                    (item) => item.mark_id === markerId
-                  );
-                  const currentResult = markerResults[markerId];
+                {allMarkerItems.map((markerData) => {
+                  const itemId = markerData._id;
+                  const markerId = markerData.mark_id;
+                  const currentResult = markerResults[itemId];
                   const isCustomMarker = markerData?.isCustom;
 
                   return (
                     <tr
-                      key={markerId}
+                      key={itemId}
                       className={`hover:bg-blue-50 transition-colors ${currentResult?.result === "ปกติ"
                           ? "bg-white"
                           : currentResult?.result === "ผิดปกติ"
@@ -471,7 +489,7 @@ export const Labeling = () => {
                           >
                             {markerData?.datetime5mins &&
                               !customMarkers.find(
-                                (m) => m.mark_id === markerId
+                                (m) => m._id === itemId
                               ) ? (
                               markerData?.datetime5mins.slice(0, 16).split('T', 2)[0] + ' ' + markerData?.datetime5mins.slice(0, 16).split('T', 2)[1]
                             ) : (
@@ -480,7 +498,7 @@ export const Labeling = () => {
                                 className="border font-[system-ui] border-gray-300 bg-white text-left rounded px-1 py-1 w-52"
                                 placeholder="YYYY-MM-DD HH:MM"
                                 onChange={(e) =>
-                                  handleDateTimeChange(markerId, e.target.value)
+                                  handleDateTimeChange(itemId, e.target.value)
                                 }
                               />
                             )}
@@ -491,12 +509,12 @@ export const Labeling = () => {
                         <label className="cursor-pointer">
                           <input
                             type="radio"
-                            name={`marker_${markerId}`}
+                            name={`marker_${itemId}`}
                             checked={currentResult?.result === "ปกติ"}
                             onChange={() =>
                               handleMarkerResultChange(
+                                itemId,
                                 markerId,
-                                markerData?._id,
                                 "ปกติ"
                               )
                             }
@@ -528,12 +546,12 @@ export const Labeling = () => {
                         <label className="cursor-pointer">
                           <input
                             type="radio"
-                            name={`marker_${markerId}`}
+                            name={`marker_${itemId}`}
                             checked={currentResult?.result === "ผิดปกติ"}
                             onChange={() =>
                               handleMarkerResultChange(
+                                itemId,
                                 markerId,
-                                markerData?._id,
                                 "ผิดปกติ"
                               )
                             }
@@ -593,7 +611,7 @@ export const Labeling = () => {
                             placeholder="0.0"
                             value={currentResult?.liter || ""}
                             onChange={(e) =>
-                              handleLiterChange(markerId, e.target.value)
+                              handleLiterChange(itemId, e.target.value)
                             }
                             disabled={currentResult?.result !== "ผิดปกติ"}
                             className={`w-24 h-10 px-3 py-2 text-center border-2 rounded-xl text-lg font-semibold transition-all duration-300 ${currentResult?.result === "ผิดปกติ"
@@ -606,7 +624,7 @@ export const Labeling = () => {
                       <td className="px-4 py-3 text-center">
                         {isCustomMarker && (
                           <button
-                            onClick={() => handleDeleteCustomMarker(markerId)}
+                            onClick={() => handleDeleteCustomMarker(itemId)}
                             className="ml-2 p-2 bg-red-100 hover:bg-red-200 text-red-600 hover:scale-110 cursor-pointer rounded-full transition-colors duration-200 group"
                             title="ลบ Marker นี้"
                           >
@@ -648,7 +666,7 @@ export const Labeling = () => {
                   <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <span className="font-semibold text-gray-700">
-                  ทั้งหมด: {uniqueMarkerIds.length} จุด
+                  ทั้งหมด: {allMarkerItems.length} จุด
                 </span>
               </div>
               <div className="flex space-x-3">

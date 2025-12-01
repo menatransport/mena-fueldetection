@@ -22,8 +22,9 @@ export const FuelDataProvider = ({ children }) => {
   const [justWrapped, setJustWrapped] = useState(false);
 
   const selectGroup = (group) => {
-    // console.log("Selecting group:", group);
+    console.log("Selecting group:", group);
     setSelectedGroup(group);
+    console.log("Selected group set to:", allGroups);
     const index = allGroups.findIndex(g => g.id === group.id);
     if (index !== -1) {
       setCurrentIndex(index);
@@ -32,6 +33,7 @@ export const FuelDataProvider = ({ children }) => {
   };
 
   const setGroupsData = (groups) => {
+    console.log("Setting groups data:", groups);
     setAllGroups(groups);
   };
 
